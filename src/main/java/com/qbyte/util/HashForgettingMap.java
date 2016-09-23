@@ -10,10 +10,13 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
+import java.util.function.Consumer;
 
 /**
- * A thread-safe implementation of a ForgettingMap that wraps a HashMap. This
- * Map cannot be used to return values.
+ * A thread-safe implementation of a ForgettingMap that wraps a HashMap, based
+ * on Sergio Bossas activemq LFUCache with some notable differences to implement
+ * the odd behaviours of a 'forgetting map'.
+ * This map cannot be used to return values.
  *
  * @author John Coleman
  *
@@ -155,8 +158,9 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     public void putAll(Map<? extends K, ? extends V> map) {
         writeLock.lock();
         try {
-            map.entrySet().parallelStream().forEach((e)
-                    -> put(e.getKey(), e.getValue()));
+            map.entrySet().parallelStream().forEach((Entry<? extends K, ? extends V> e) -> {
+                put(e.getKey(), e.getValue());
+            });
         } finally {
             writeLock.unlock();
         }
@@ -270,6 +274,12 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns the frequency of the given key.
+     *
+     * @param key the key to obtain the frequency of find operations performed
+     * @return the frequency of the keys find operations
+     */
     public int frequencyOf(K key) {
         readLock.lock();
         try {
@@ -341,10 +351,10 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
      * key.
      */
     @Override
-    public boolean containsKey(Object o) {
+    public boolean containsKey(Object key) {
         readLock.lock();
         try {
-            return this.map.containsKey(o);
+            return this.map.containsKey(key);
         } finally {
             readLock.unlock();
         }
