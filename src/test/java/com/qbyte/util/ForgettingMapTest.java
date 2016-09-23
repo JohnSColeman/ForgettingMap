@@ -1,6 +1,7 @@
 package com.qbyte.util;
 
-import static java.lang.System.out;
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,5 +46,20 @@ public class ForgettingMapTest {
                 }
             }
         }
+    }
+    
+    @Test
+    public void whenExcessElementsAddedInBulkModeThenLeastFoundElementsDropped() {
+        final int mapSize = 50;
+        final ForgettingMap<Integer, Integer> map
+                    = new HashForgettingMap<>(mapSize);
+        final Map<Integer, Integer> bulk = new HashMap<>();
+        for (int bulkno = 0; bulkno < mapSize; bulkno++) {
+            bulk.put(bulkno, bulkno);
+        }
+        map.putAll(bulk);
+        assertThat(map.size()).isEqualTo(mapSize);
+        map.keySet().parallelStream().forEach((k) -> map.find(k));
+        
     }
 }

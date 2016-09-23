@@ -15,8 +15,8 @@ import java.util.function.Consumer;
 /**
  * A thread-safe implementation of a ForgettingMap that wraps a HashMap, based
  * on Sergio Bossas activemq LFUCache with some notable differences to implement
- * the odd behaviours of a 'forgetting map'.
- * This map cannot be used to return values.
+ * the odd behaviours of a 'forgetting map'. This map cannot be used to return
+ * values.
  *
  * @author John Coleman
  *
@@ -122,27 +122,22 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     }
 
     private V put(K key, V value, boolean returnEvicted) {
-        writeLock.lock();
-        try {
-            V oldValue = null;
-            CacheNode<K, V> currentNode = map.get(key);
-            if (currentNode == null) {
-                if (map.size() == maxCapacity) {
-                    oldValue = returnEvicted ? doEviction() : null;
-                }
-                LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[0];
-                currentNode = new CacheNode(key, value, 0);
-                nodes.add(currentNode);
-                map.put(key, currentNode);
-                lowestFrequency = 0;
-            } else {
-                oldValue = currentNode.value;
-                currentNode.value = value;
+        V oldValue = null;
+        CacheNode<K, V> currentNode = map.get(key);
+        if (currentNode == null) {
+            if (map.size() == maxCapacity) {
+                oldValue = returnEvicted ? doEviction() : null;
             }
-            return oldValue;
-        } finally {
-            writeLock.unlock();
+            LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[0];
+            currentNode = new CacheNode(key, value, 0);
+            nodes.add(currentNode);
+            map.put(key, currentNode);
+            lowestFrequency = 0;
+        } else {
+            oldValue = currentNode.value;
+            currentNode.value = value;
         }
+        return oldValue;
     }
 
     /**
@@ -158,8 +153,9 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     public void putAll(Map<? extends K, ? extends V> map) {
         writeLock.lock();
         try {
-            map.entrySet().parallelStream().forEach((Entry<? extends K, ? extends V> e) -> {
-                put(e.getKey(), e.getValue());
+            map.entrySet().parallelStream().forEach((e) -> {
+                System.out.println("add " + e);
+                put(e.getKey(), e.getValue(), false);
             });
         } finally {
             writeLock.unlock();
@@ -445,10 +441,10 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     }
 
     /**
-     * A data type class that encapsulates the map value and the associated
-     * key and find frequency.
+     * A data type class that encapsulates the map value and the associated key
+     * and find frequency.
      *
-     * @param <K> key  type
+     * @param <K> key type
      * @param <V> value type
      */
     private static class CacheNode<K, V> {
