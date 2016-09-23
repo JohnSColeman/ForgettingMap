@@ -8,8 +8,8 @@ import java.util.Map;
  * frequently found.
  *
  * @author John Coleman
- * @param <K>
- * @param <V>
+ * @param <K> key type
+ * @param <V> value type
  */
 public interface ForgettingMap<K, V> extends Map<K, V> {
     
@@ -19,7 +19,7 @@ public interface ForgettingMap<K, V> extends Map<K, V> {
      *
      * @param key a key object
      * @param value a value object associated with the key
-     * @return 
+     * @return the evicted value or null
      */
     V add(K key, V value);
     
