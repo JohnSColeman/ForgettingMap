@@ -12,34 +12,60 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 /**
- * A thread-safe implementation of a ForgettingMap that wraps a HashMap.
+ * A thread-safe implementation of a ForgettingMap that wraps a HashMap. This
+ * Map cannot be used to return values.
  *
  * @author John Coleman
  *
- * @param <K>
- * @param <V>
+ * @param <K> key type
+ * @param <V> value type
  */
 public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
 
+    /**
+     * The lock.
+     */
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
+    /**
+     * The read lock.
+     */
     private final ReadLock readLock = lock.readLock();
 
+    /**
+     * The write lock.
+     */
     private final WriteLock writeLock = lock.writeLock();
 
+    /**
+     * The map.
+     */
     private final Map<K, CacheNode<K, V>> map;
 
+    /**
+     * The set of frequencies.
+     */
     private final LinkedHashSet[] frequencyList;
 
+    /**
+     * The lowest frequency.
+     */
     private int lowestFrequency;
 
+    /**
+     * The maximum frequency.
+     */
     private final int maxFrequency;
-    //
+
+    /**
+     * The maximum capacity of the map.
+     */
     private final int maxCapacity;
 
     /**
+     * Instantiate the Map with the given maximum capacity.
      *
-     * @param maxCapacity
+     * @param maxCapacity the maximum capacity of this Map.
      */
     public HashForgettingMap(int maxCapacity) {
         this.map = new HashMap<>(maxCapacity);
@@ -50,6 +76,16 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         initFrequencyList();
     }
 
+    /**
+     * Associates the specified value with the specified key in this map. If the
+     * map previously contained a mapping for the key, the old value is
+     * replaced. If the maximum capacity of the map was exceeded then the
+     * evicted value is returned.
+     *
+     * @param key key with which the specified value is to be associated
+     * @param value value to be associated with the specified key
+     * @return the evicted value or <tt>null</tt> if no value was evicted
+     */
     @Override
     public V add(K key, V value) {
         writeLock.lock();
@@ -60,6 +96,18 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Associates the specified value with the specified key in this map. If the
+     * map previously contained a mapping for the key, the old value is
+     * replaced.
+     *
+     * @param key key with which the specified value is to be associated
+     * @param value value to be associated with the specified key
+     * @return the previous value associated with <tt>key</tt>, or
+     * <tt>null</tt> if there was no mapping for <tt>key</tt>. (A <tt>null</tt>
+     * return can also indicate that the map previously associated <tt>null</tt>
+     * with <tt>key</tt>.)
+     */
     @Override
     public V put(K key, V value) {
         writeLock.lock();
@@ -94,6 +142,15 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Copies all of the mappings from the specified map to this map. These
+     * mappings will replace any mappings that this map had for any of the keys
+     * currently in the specified map. Note that bulk insertions that exceed the
+     * maximum map capacity cause the previously added elements to be evicted.
+     *
+     * @param map mappings to be stored in this map
+     * @throws NullPointerException if the specified map is null
+     */
     @Override
     public void putAll(Map<? extends K, ? extends V> map) {
         writeLock.lock();
@@ -105,6 +162,25 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns the value to which the specified key is mapped, or {@code null}
+     * if this map contains no mapping for the key.
+     *
+     * <p>
+     * More formally, if this map contains a mapping from a key {@code k} to a
+     * value {@code v} such that {@code (key==null ? k==null :
+     * key.equals(k))}, then this method returns {@code v}; otherwise it returns
+     * {@code null}. (There can be at most one such mapping.)
+     *
+     * <p>
+     * A return value of {@code null} does not <i>necessarily</i>
+     * indicate that the map contains no mapping for the key; it's also possible
+     * that the map explicitly maps the key to {@code null}. The
+     * {@link #containsKey containsKey} operation may be used to distinguish
+     * these two cases.
+     *
+     * @see #put(Object, Object)
+     */
     @Override
     public V get(Object key) {
         readLock.lock();
@@ -115,6 +191,26 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns the value to which the specified key is mapped, or {@code null}
+     * if this map contains no mapping for the key and increases the frequency
+     * for the mapping causing it to survive eviction longer.
+     *
+     * <p>
+     * More formally, if this map contains a mapping from a key {@code k} to a
+     * value {@code v} such that {@code (key==null ? k==null :
+     * key.equals(k))}, then this method returns {@code v}; otherwise it returns
+     * {@code null}. (There can be at most one such mapping.)
+     *
+     * <p>
+     * A return value of {@code null} does not <i>necessarily</i>
+     * indicate that the map contains no mapping for the key; it's also possible
+     * that the map explicitly maps the key to {@code null}. The
+     * {@link #containsKey containsKey} operation may be used to distinguish
+     * these two cases.
+     *
+     * @see #put(Object, Object)
+     */
     @Override
     public V find(Object key) {
         readLock.lock();
@@ -132,7 +228,6 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
                         lowestFrequency = nextFrequency;
                     }
                 } else {
-                    // Hybrid with LRU: put most recently accessed ahead of others:
                     LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[currentFrequency];
                     nodes.remove(currentNode);
                     nodes.add(currentNode);
@@ -146,6 +241,15 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Removes the mapping for the specified key from this map if present.
+     *
+     * @param key key whose mapping is to be removed from the map
+     * @return the previous value associated with <tt>key</tt>, or
+     * <tt>null</tt> if there was no mapping for <tt>key</tt>. (A <tt>null</tt>
+     * return can also indicate that the map previously associated <tt>null</tt>
+     * with <tt>key</tt>.)
+     */
     @Override
     public V remove(Object key) {
         writeLock.lock();
@@ -180,6 +284,10 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Removes all of the mappings from this map. The map will be empty after
+     * this call returns.
+     */
     @Override
     public void clear() {
         writeLock.lock();
@@ -194,6 +302,11 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns the number of key-value mappings in this map.
+     *
+     * @return the number of key-value mappings in this map
+     */
     @Override
     public int size() {
         readLock.lock();
@@ -204,6 +317,11 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns <tt>true</tt> if this map contains no key-value mappings.
+     *
+     * @return <tt>true</tt> if this map contains no key-value mappings
+     */
     @Override
     public boolean isEmpty() {
         readLock.lock();
@@ -214,6 +332,14 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns <tt>true</tt> if this map contains a mapping for the specified
+     * key.
+     *
+     * @param key The key whose presence in this map is to be tested
+     * @return <tt>true</tt> if this map contains a mapping for the specified
+     * key.
+     */
     @Override
     public boolean containsKey(Object o) {
         readLock.lock();
@@ -261,6 +387,12 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Returns a {@link Set} view of the keys contained in this map. The set is
+     * backed by the map, so changes to the map are reflected in the set. If the
+     * map is modified while an iteration over the set is in progress the
+     * results of the iteration are undefined. The set is unmodifiable.
+     */
     @Override
     public Set<K> keySet() {
         readLock.lock();
@@ -271,25 +403,43 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
+    /**
+     * Always returns false.
+     *
+     * @param value value whose presence in this map is to be tested
+     * @return false
+     */
     @Override
-    public boolean containsValue(Object o) {
+    public boolean containsValue(Object value) {
         return false;
     }
 
+    /**
+     * Throws an exception.
+     *
+     * @return never
+     */
     @Override
     public Collection<V> values() {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public Set<Entry<K, V>> entrySet() {
-        throw new UnsupportedOperationException("Not supported yet.");
+        throw new UnsupportedOperationException("Not supported.");
     }
 
     /**
+     * Throws an exception.
      *
-     * @param <K>
-     * @param <V>
+     * @return never
+     */
+    @Override
+    public Set<Entry<K, V>> entrySet() {
+        throw new UnsupportedOperationException("Not supported.");
+    }
+
+    /**
+     * A data type class that encapsulates the map value and the associated
+     * key and find frequency.
+     *
+     * @param <K> key  type
+     * @param <V> value type
      */
     private static class CacheNode<K, V> {
 

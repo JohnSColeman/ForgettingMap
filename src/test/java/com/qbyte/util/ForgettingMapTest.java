@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.qbyte.util;
 
 import static java.lang.System.out;
@@ -10,14 +5,12 @@ import org.junit.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- *
+ * Exercise the ForgettingMap class.
+ * 
  * @author John
  */
 public class ForgettingMapTest {
 
-    /**
-     * Test of add method, of class HashForgettingMap.
-     */
     @Test
     public void whenExcessElementsAddedThenInitialCapacityNotExceeded() {
         for (int test = 1; test <= 10; test++) {
@@ -40,6 +33,7 @@ public class ForgettingMapTest {
                     = new HashForgettingMap<>(capacity);
             final int addAttempts = capacity + test;
             for (int attempt = 1; attempt <= addAttempts; attempt++) {
+                // find all prior elements but the first
                 for (int find = attempt - 1; find > 1; find--) {
                     map.find(find);
                 }
@@ -49,9 +43,6 @@ public class ForgettingMapTest {
                 } else if (attempt > capacity + 1) {
                     assertThat(forgotten).isEqualTo(attempt - 1);
                 }
-                // assertThat(forgotten).isEqualTo();
-                // @TODO remove following line later - only for test development
-                out.println("attempt" + attempt + " size=" + map.size() + " capacity=" + capacity + " forgotten " + forgotten);
             }
         }
     }

@@ -3,8 +3,28 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.qbyte</groupId>
     <artifactId>ForgettingMap</artifactId>
-    <version>0.0.1</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
+    <name>Forgetting Map</name>
+    
+    <description>This project provides an implementation of a Map that evicts
+        the least frequently used values when the maximum capacity of the map 
+        is exceeded.
+    </description>
+    
+    <developers>
+        <developer>
+            <name>John Coleman</name>
+            <organization>Qbyte Consulting</organization>
+            <email>qbyteconsulting@gmail.com</email>
+        </developer>
+    </developers>
+    
+    <scm>
+        <connection>scm:git:https://github.com/JohnSColeman/ForgettingMap.git</connection>
+        <developerConnection>scm:git:https://github.com/JohnSColeman/ForgettingMap.git</developerConnection>
+    </scm>
+    
     <dependencies>
 
         <dependency>
@@ -27,9 +47,33 @@
             <version>3.5.2</version>
             <scope>test</scope>
         </dependency>
-        
 
     </dependencies>
+    
+    <reporting>
+        <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.10.4</version>
+            </plugin>
+            
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>javancss-maven-plugin</artifactId>
+                <version>2.1</version>
+            </plugin>
+      
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>jdepend-maven-plugin</artifactId>
+                <version>2.0</version>
+            </plugin>
+      
+        </plugins>
+    </reporting>
+    
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
