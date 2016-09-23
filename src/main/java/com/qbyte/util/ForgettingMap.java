@@ -14,12 +14,14 @@ import java.util.Map;
 public interface ForgettingMap<K, V> extends Map<K, V> {
     
     /**
-     * Add the given key-value pair to the map.
+     * Add the given key-value pair to the map and return the least frequently 
+     * found value value that was removed if the Map was full already or null.
      *
      * @param key a key object
      * @param value a value object associated with the key
+     * @return 
      */
-    void add(K key, V value);
+    V add(K key, V value);
     
     /**
      * Returns the value object associated with the given key object.

@@ -3,168 +3,194 @@ package com.qbyte.util;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 /**
  * A thread-safe implementation of a ForgettingMap that wraps a HashMap.
  *
  * @author John Coleman
+ *
  * @param <K>
  * @param <V>
  */
 public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
 
-    /**
-     * CompoundKey provides inconsistent equals and compareTo behaviours, equals
-     * is based on the key, compareTo is based on the hitCount. This implements
-     * the difference between equality and ordering as required.
-     *
-     * @param <K> the key
-     */
-    static class CompoundKey<K> implements Comparable<CompoundKey<K>> {
-
-        int hitCount;
-
-        K key;
-
-        public CompoundKey(K key) {
-            this.key = key;
-        }
-
-        @Override
-        public int compareTo(CompoundKey<K> other) {
-            if (equals(other)) {
-                return 0;
-            } else {
-                System.out.println("HC COMP");
-                int comp = this.hitCount - other.hitCount;
-                return comp != 0? comp : 1;
-            }
-        }
-
-        @Override
-        public int hashCode() {
-            int hash = 7;
-            hash = 97 * hash + this.hitCount;
-            hash = 97 * hash + Objects.hashCode(this.key);
-            return hash;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            final CompoundKey<?> other = (CompoundKey<?>) obj;
-            System.out.println("EQ " + this.key.equals(other.key));
-            return this.key.equals(other.key);
-        }
-        
-        @Override
-        public String toString() {
-            return "CompoundKey{" + "hitCount=" + hitCount + ", key=" + key + '}';
-        }
-    }
-
-    /**
-     * The maximum capacity for this Map.
-     */
-    private final int capacity;
-
-    /**
-     * An ordered Map of the compoundKeys.
-     */
-    private final TreeMap<CompoundKey<K>, CompoundKey<K>> keys = new TreeMap();
-
-    /**
-     * The Map used to implement this Map.
-     */
-    private final Map<K, V> map = new HashMap<>();
-
-    /**
-     * The lock for controlling read/write access.
-     */
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
-    /**
-     * The read lock.
-     */
-    private final Lock readLock = lock.readLock();
+    private final ReadLock readLock = lock.readLock();
+
+    private final WriteLock writeLock = lock.writeLock();
+
+    private final Map<K, CacheNode<K, V>> map;
+
+    private final LinkedHashSet[] frequencyList;
+
+    private int lowestFrequency;
+
+    private final int maxFrequency;
+    //
+    private final int maxCapacity;
 
     /**
-     * The write lock.
-     */
-    private final Lock writeLock = lock.writeLock();
-
-    /**
-     * Constructs a ForgettingMap with the given maximum capacity.
      *
-     * @param capacity the maximum capacity for this ForgettingMap
+     * @param maxCapacity
      */
-    public HashForgettingMap(int capacity) {
-        this.capacity = capacity;
+    public HashForgettingMap(int maxCapacity) {
+        this.map = new HashMap<>(maxCapacity);
+        this.frequencyList = new LinkedHashSet[maxCapacity];
+        this.lowestFrequency = 0;
+        this.maxFrequency = maxCapacity - 1;
+        this.maxCapacity = maxCapacity;
+        initFrequencyList();
     }
 
-    /**
-     * Returns the maximum capacity of this Map.
-     *
-     * @return the maximum capacity for this ForgettingMap
-     */
-    public int getCapacity() {
-        return capacity;
-    }
-
-    /**
-     * Adds a key-value pair to this ForgettingMap and removes the mapping with
-     * the least hits made by the find method if the size exceeds the maximum
-     * capacity.
-     *
-     * @param key
-     * @param value
-     */
     @Override
-    public synchronized void add(K key, V value) {
+    public V add(K key, V value) {
         writeLock.lock();
         try {
-            this.put(key, value);
+            return this.put(key, value, true);
         } finally {
             writeLock.unlock();
         }
     }
 
-    /**
-     * Returns the value associated with the given key and updates the keys hit
-     * count or returns null if the key is not found.
-     *
-     * @param key the key of the value to return
-     * @return the element associated with the key or null
-     */
     @Override
-    public V find(K key) {
+    public V put(K key, V value) {
+        writeLock.lock();
+        try {
+            return this.put(key, value, false);
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    private V put(K key, V value, boolean returnEvicted) {
+        writeLock.lock();
+        try {
+            V oldValue = null;
+            CacheNode<K, V> currentNode = map.get(key);
+            if (currentNode == null) {
+                if (map.size() == maxCapacity) {
+                    oldValue = returnEvicted ? doEviction() : null;
+                }
+                LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[0];
+                currentNode = new CacheNode(key, value, 0);
+                nodes.add(currentNode);
+                map.put(key, currentNode);
+                lowestFrequency = 0;
+            } else {
+                oldValue = currentNode.value;
+                currentNode.value = value;
+            }
+            return oldValue;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    @Override
+    public void putAll(Map<? extends K, ? extends V> map) {
+        writeLock.lock();
+        try {
+            map.entrySet().parallelStream().forEach((e)
+                    -> put(e.getKey(), e.getValue()));
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    @Override
+    public V get(Object key) {
         readLock.lock();
         try {
-            CompoundKey compKey = keys.get(new CompoundKey(key));
-            if (compKey != null) {
-                ++compKey.hitCount;
-                keys.put(compKey, compKey);
-                return map.get(key);
+            return map.get(key).value;
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @Override
+    public V find(Object key) {
+        readLock.lock();
+        try {
+            CacheNode<K, V> currentNode = map.get(key);
+            if (currentNode != null) {
+                int currentFrequency = currentNode.frequency;
+                if (currentFrequency < maxFrequency) {
+                    int nextFrequency = currentFrequency + 1;
+                    LinkedHashSet<CacheNode<K, V>> currentNodes = frequencyList[currentFrequency];
+                    LinkedHashSet<CacheNode<K, V>> newNodes = frequencyList[nextFrequency];
+                    moveToNextFrequency(currentNode, nextFrequency, currentNodes, newNodes);
+                    map.put((K) key, currentNode);
+                    if (lowestFrequency == currentFrequency && currentNodes.isEmpty()) {
+                        lowestFrequency = nextFrequency;
+                    }
+                } else {
+                    // Hybrid with LRU: put most recently accessed ahead of others:
+                    LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[currentFrequency];
+                    nodes.remove(currentNode);
+                    nodes.add(currentNode);
+                }
+                return currentNode.value;
             } else {
                 return null;
             }
         } finally {
             readLock.unlock();
+        }
+    }
+
+    @Override
+    public V remove(Object key) {
+        writeLock.lock();
+        try {
+            CacheNode<K, V> currentNode = map.remove(key);
+            if (currentNode != null) {
+                LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[currentNode.frequency];
+                nodes.remove(currentNode);
+                if (lowestFrequency == currentNode.frequency) {
+                    findNextLowestFrequency();
+                }
+                return currentNode.value;
+            } else {
+                return null;
+            }
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    public int frequencyOf(K key) {
+        readLock.lock();
+        try {
+            CacheNode<K, V> node = map.get(key);
+            if (node != null) {
+                return node.frequency + 1;
+            } else {
+                return 0;
+            }
+        } finally {
+            readLock.unlock();
+        }
+    }
+
+    @Override
+    public void clear() {
+        writeLock.lock();
+        try {
+            for (int i = 0; i <= maxFrequency; i++) {
+                frequencyList[i].clear();
+            }
+            map.clear();
+            lowestFrequency = 0;
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -182,110 +208,59 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     public boolean isEmpty() {
         readLock.lock();
         try {
-            return map.isEmpty();
+            return this.map.isEmpty();
         } finally {
             readLock.unlock();
         }
     }
 
     @Override
-    public boolean containsKey(Object key) {
+    public boolean containsKey(Object o) {
         readLock.lock();
         try {
-            return map.containsKey(key);
+            return this.map.containsKey(o);
         } finally {
             readLock.unlock();
         }
     }
 
-    @Override
-    public boolean containsValue(Object value) {
-        readLock.lock();
-        try {
-            return map.containsValue(value);
-        } finally {
-            readLock.unlock();
+    private void initFrequencyList() {
+        for (int i = 0; i <= maxFrequency; i++) {
+            frequencyList[i] = new LinkedHashSet<>();
         }
     }
 
-    @Override
-    public V get(Object key) {
-        readLock.lock();
-        try {
-            return map.get(key);
-        } finally {
-            readLock.unlock();
-        }
-    }
-
-    /**
-     * Adds a key-value pair to this ForgettingMap and removes the mapping with
-     * the least hits made by the find method if the new size would exceed the
-     * maximum capacity.
-     *
-     * @param key the key of the associated value
-     * @param value the value to add to this Map
-     */
-    @Override
-    public V put(K key, V value) {
-        writeLock.lock();
-        try {
-            CompoundKey compKey = new CompoundKey(key);
-            System.out.println("KEY " + key + " CONTAINS " + keys.containsKey(compKey));
-            if (!keys.containsKey(compKey)) {
-                if (keys.size() + 1 > capacity) {
-                    CompoundKey remKey = keys.firstKey();
-                    System.out.println("KEY TO REMOVE " + compKey);
-                    map.remove(remKey.key);
-                    Object removed = keys.remove(remKey);
-                    System.out.println("SIZES Ks=" + keys.size() + " Ms" + map.size() + " REM " + removed);
-                }
-                keys.put(compKey, compKey);
+    private V doEviction() {
+        LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[lowestFrequency];
+        if (nodes.isEmpty()) {
+            throw new IllegalStateException("Lowest frequency constraint violated!");
+        } else {
+            Iterator<CacheNode<K, V>> it = nodes.iterator();
+            if (it.hasNext()) {
+                CacheNode<K, V> node = it.next();
+                it.remove();
+                return map.remove(node.key).value;
             }
-            return map.put(key, value);
-        } finally {
-            writeLock.unlock();
+        }
+        return null;
+    }
+
+    private void moveToNextFrequency(CacheNode<K, V> currentNode,
+            int nextFrequency, LinkedHashSet<CacheNode<K, V>> currentNodes, LinkedHashSet<CacheNode<K, V>> newNodes) {
+        currentNodes.remove(currentNode);
+        newNodes.add(currentNode);
+        currentNode.frequency = nextFrequency;
+    }
+
+    private void findNextLowestFrequency() {
+        while (lowestFrequency <= maxFrequency && frequencyList[lowestFrequency].isEmpty()) {
+            lowestFrequency++;
+        }
+        if (lowestFrequency > maxFrequency) {
+            lowestFrequency = 0;
         }
     }
 
-    @Override
-    public synchronized V remove(Object key) {
-        writeLock.lock();
-        try {
-            keys.remove(new CompoundKey(key));
-            return map.remove(key);
-        } finally {
-            writeLock.unlock();
-        }
-    }
-
-    @Override
-    public void putAll(Map<? extends K, ? extends V> m) {
-        writeLock.lock();
-        try {
-            m.entrySet().parallelStream().forEach((e)
-                    -> put(e.getKey(), e.getValue()));
-        } finally {
-            writeLock.unlock();
-        }
-    }
-
-    @Override
-    public void clear() {
-        writeLock.lock();
-        try {
-            map.clear();
-            keys.clear();
-        } finally {
-            writeLock.unlock();
-        }
-    }
-
-    /**
-     * Returns an unmodifiable version of this Maps key set.
-     *
-     * @return this Maps key set
-     */
     @Override
     public Set<K> keySet() {
         readLock.lock();
@@ -296,33 +271,36 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         }
     }
 
-    /**
-     * Returns an unmodifiable version of the this Maps values.
-     *
-     * @return this Maps values
-     */
+    @Override
+    public boolean containsValue(Object o) {
+        return false;
+    }
+
     @Override
     public Collection<V> values() {
-        readLock.lock();
-        try {
-            return Collections.unmodifiableCollection(map.values());
-        } finally {
-            readLock.unlock();
-        }
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Set<Entry<K, V>> entrySet() {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 
     /**
-     * Returns an unmodifiable version of this Maps entry set.
      *
-     * @return this maps entry set
+     * @param <K>
+     * @param <V>
      */
-    @Override
-    public Set<Entry<K, V>> entrySet() {
-        readLock.lock();
-        try {
-            return Collections.unmodifiableSet(map.entrySet());
-        } finally {
-            readLock.unlock();
+    private static class CacheNode<K, V> {
+
+        public final K key;
+        public V value;
+        public int frequency;
+
+        public CacheNode(K key, V value, int frequency) {
+            this.key = key;
+            this.value = value;
+            this.frequency = frequency;
         }
     }
 }
