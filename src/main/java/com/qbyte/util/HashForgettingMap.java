@@ -213,7 +213,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
      */
     @Override
     public V find(Object key) {
-        readLock.lock();
+        writeLock.lock();
         try {
             CacheNode<K, V> currentNode = map.get(key);
             if (currentNode != null) {
@@ -237,7 +237,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
                 return null;
             }
         } finally {
-            readLock.unlock();
+            writeLock.unlock();
         }
     }
 
@@ -274,7 +274,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
      * Returns the frequency of the given key.
      *
      * @param key the key to obtain the frequency of find operations performed
-     * @return the frequency of the keys find operations
+     * @return the frequency (actually a rank) of the keys find operations
      */
     public int frequencyOf(K key) {
         readLock.lock();
