@@ -16,6 +16,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class ForgettingMapTest {
 
     @Test
+    public void whenELementAddedThenElementIsMapped() {
+        final ForgettingMap<Integer, Integer> map
+                = new HashForgettingMap<>(1);
+        map.put(1, 1);
+        assertThat(map.get(1)).isEqualTo(1);
+    }
+
+    @Test
+    public void whenELementAddedThenElementRemovedThenMapIsEmpty() {
+        final ForgettingMap<Integer, Integer> map
+                = new HashForgettingMap<>(1);
+        map.put(1, 1);
+        map.remove(1);
+        assertThat(map).isEmpty();
+    }
+
+    @Test
     public void whenExcessElementsAddedThenInitialCapacityNotExceeded() {
         for (int test = 1; test <= 10; test++) {
             final int capacity = test * test;
@@ -81,5 +98,6 @@ public class ForgettingMapTest {
         Integer[] unfoundKs = new Integer[unfoundKeys.size()];
         unfoundKs = unfoundKeys.toArray(unfoundKs);
         assertThat(map).doesNotContainKeys(unfoundKs);
-     }
+    }
+
 }
