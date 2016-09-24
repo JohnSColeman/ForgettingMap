@@ -1,7 +1,10 @@
 package com.qbyte.util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import org.junit.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -59,8 +62,12 @@ public class ForgettingMapTest {
         }
         map.putAll(bulk);
         assertThat(map).hasSize(mapSize);
+        Set<Integer> unfoundKeys = new HashSet();
+        unfoundKeys.add(new Random().nextInt(mapSize) + 1);
+        unfoundKeys.add(new Random().nextInt(mapSize) + 1);
+        unfoundKeys.add(new Random().nextInt(mapSize) + 1);
         map.keySet().forEach((k) -> {
-            if (k != 1) {
+            if (!unfoundKeys.contains(k)) {
                 map.find(k);
             }
         });
@@ -70,7 +77,9 @@ public class ForgettingMapTest {
         }
         map.putAll(bulk2);
         assertThat(map).hasSize(mapSize);
-        assertThat(map).containsKey(100);
-        assertThat(map).doesNotContainKey(1);
+        assertThat(map).containsKey(100); // last key inserted always added
+        Integer[] unfoundKs = new Integer[unfoundKeys.size()];
+        unfoundKs = unfoundKeys.toArray(unfoundKs);
+        assertThat(map).doesNotContainKeys(unfoundKs);
      }
 }

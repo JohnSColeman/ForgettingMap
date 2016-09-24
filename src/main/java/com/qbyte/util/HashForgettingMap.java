@@ -10,7 +10,6 @@ import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
-import java.util.function.Consumer;
 
 /**
  * A thread-safe implementation of a ForgettingMap that wraps a HashMap, based
