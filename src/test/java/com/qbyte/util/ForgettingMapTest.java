@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Exercise the ForgettingMap class.
- * 
+ *
  * @author John
  */
 public class ForgettingMapTest {
@@ -47,19 +47,30 @@ public class ForgettingMapTest {
             }
         }
     }
-    
+
     @Test
     public void whenExcessElementsAddedInBulkModeThenLeastFoundElementsDropped() {
         final int mapSize = 50;
         final ForgettingMap<Integer, Integer> map
-                    = new HashForgettingMap<>(mapSize);
+                = new HashForgettingMap<>(mapSize);
         final Map<Integer, Integer> bulk = new HashMap<>();
-        for (int bulkno = 0; bulkno < mapSize; bulkno++) {
+        for (int bulkno = 1; bulkno <= mapSize; bulkno++) {
             bulk.put(bulkno, bulkno);
         }
         map.putAll(bulk);
-        assertThat(map.size()).isEqualTo(mapSize);
-        map.keySet().parallelStream().forEach((k) -> map.find(k));
-        
-    }
+        assertThat(map).hasSize(mapSize);
+        map.keySet().forEach((k) -> {
+            if (k != 1) {
+                map.find(k);
+            }
+        });
+        final Map<Integer, Integer> bulk2 = new HashMap<>();
+        for (int bulkno = mapSize + 1; bulkno <= mapSize * 2; bulkno++) {
+            bulk2.put(bulkno, bulkno);
+        }
+        map.putAll(bulk2);
+        assertThat(map).hasSize(mapSize);
+        assertThat(map).containsKey(100);
+        assertThat(map).doesNotContainKey(1);
+     }
 }

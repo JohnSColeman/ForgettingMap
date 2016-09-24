@@ -102,7 +102,8 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     /**
      * Associates the specified value with the specified key in this map. If the
      * map previously contained a mapping for the key, the old value is
-     * replaced.
+     * replaced. If the map is at maximum capacity and requires to add a new
+     * mapping, a least frequently used mapping is evicted for it.
      *
      * @param key key with which the specified value is to be associated
      * @param value value to be associated with the specified key
@@ -126,7 +127,10 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         CacheNode<K, V> currentNode = map.get(key);
         if (currentNode == null) {
             if (map.size() == maxCapacity) {
-                oldValue = returnEvicted ? doEviction() : null;
+                V evicted = doEviction();
+                if (returnEvicted) {
+                    oldValue = evicted;
+                }
             }
             LinkedHashSet<CacheNode<K, V>> nodes = frequencyList[0];
             currentNode = new CacheNode(key, value, 0);
@@ -153,10 +157,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
     public void putAll(Map<? extends K, ? extends V> map) {
         writeLock.lock();
         try {
-            map.entrySet().parallelStream().forEach((e) -> {
-                System.out.println("add " + e);
-                put(e.getKey(), e.getValue(), false);
-            });
+            map.forEach((k, v) -> put(k, v, false));
         } finally {
             writeLock.unlock();
         }
@@ -217,7 +218,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
         try {
             CacheNode<K, V> currentNode = map.get(key);
             if (currentNode != null) {
-                int currentFrequency = currentNode.frequency;
+                int currentFrequency = currentNode.frequency;       
                 if (currentFrequency < maxFrequency) {
                     int nextFrequency = currentFrequency + 1;
                     LinkedHashSet<CacheNode<K, V>> currentNodes = frequencyList[currentFrequency];
@@ -427,7 +428,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
      */
     @Override
     public Collection<V> values() {
-        throw new UnsupportedOperationException("Not supported.");
+        throw new UnsupportedOperationException("values() not supported.");
     }
 
     /**
@@ -437,7 +438,7 @@ public class HashForgettingMap<K, V> implements ForgettingMap<K, V> {
      */
     @Override
     public Set<Entry<K, V>> entrySet() {
-        throw new UnsupportedOperationException("Not supported.");
+        throw new UnsupportedOperationException("entrySet() not supported.");
     }
 
     /**
