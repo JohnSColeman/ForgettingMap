@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class ForgettingMapTest {
 
     @Test
-    public void whenELementAddedThenElementIsMapped() {
+    public void whenELementAdded_ThenElementIsMapped() {
         final ForgettingMap<Integer, Integer> map
                 = new HashForgettingMap<>(1);
         map.put(1, 1);
@@ -24,7 +24,7 @@ public class ForgettingMapTest {
     }
 
     @Test
-    public void whenELementAddedThenElementRemovedThenMapIsEmpty() {
+    public void whenELementAdded_ThenElementRemoved_ThenMapIsEmpty() {
         final ForgettingMap<Integer, Integer> map
                 = new HashForgettingMap<>(1);
         map.put(1, 1);
@@ -33,7 +33,7 @@ public class ForgettingMapTest {
     }
 
     @Test
-    public void whenExcessElementsAddedThenInitialCapacityNotExceeded() {
+    public void whenExcessElementsAdded_ThenInitialCapacityNotExceeded() {
         for (int test = 1; test <= 10; test++) {
             final int capacity = test * test;
             final ForgettingMap<Integer, Object> map
@@ -47,7 +47,7 @@ public class ForgettingMapTest {
     }
 
     @Test
-    public void whenExcessElementsAddedThenLeastFoundElementsDropped() {
+    public void whenExcessElementsAdded_ThenLeastFoundElementsDropped() {
         for (int test = 1; test <= 10; test++) {
             final int capacity = test * test;
             final ForgettingMap<Integer, Integer> map
@@ -69,7 +69,7 @@ public class ForgettingMapTest {
     }
 
     @Test
-    public void whenExcessElementsAddedInBulkModeThenLeastFoundElementsDropped() {
+    public void whenExcessElementsAddedInBulkMode_ThenLeastFoundElementsDropped() {
         final int mapSize = 50;
         final ForgettingMap<Integer, Integer> map
                 = new HashForgettingMap<>(mapSize);
